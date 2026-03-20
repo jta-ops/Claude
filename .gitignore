@@ -1,0 +1,33 @@
+# Gradle build outputs
+.gradle/
+build/
+**/build/
+out/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Fabric Loom caches (very large, always re-downloadable)
+.loom/
+
+# Remapped jars produced by Loom
+*-remapped*.jar
+
+# Environment / secrets
+.env
+local.properties

@@ -1,0 +1,69 @@
+// ============================================================
+// 1.20.1/build.gradle  –  Minecraft 1.20.1 subproject
+// ============================================================
+//
+// This file provides the exact dependency versions needed to
+// build the mod for Minecraft 1.20.1.
+//
+// TIP: always verify these versions at https://fabricmc.net/develop/
+// before releasing.  Values below are known-good as of early 2026.
+// ============================================================
+
+// 'ext' makes these values available as project.minecraft_version,
+// project.loader_version, etc. inside build.gradle (root).
+ext {
+    minecraft_version = '1.20.1'
+
+    // Yarn mappings give human-readable names to Minecraft's obfuscated
+    // code.  The ':v2' suffix selects the newer mapping format.
+    yarn_mappings    = '1.20.1+build.10'
+
+    // Fabric Loader is the actual mod loader injected into the JVM.
+    loader_version   = '0.15.11'
+
+    // Fabric API is the helper library on top of vanilla MC.
+    // The suffix '+1.20.1' pins it to this MC version's build.
+    fabric_version   = '0.92.3+1.20.1'
+}
+
+dependencies {
+    // 'minecraft' is a special Loom configuration — it downloads and
+    // deobfuscates the Minecraft jar automatically.
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+
+    // 'mappings' tells Loom which name set to apply.
+    mappings  "net.fabricmc:yarn:${yarn_mappings}:v2"
+
+    // 'modImplementation' = included in the mod jar AND on the classpath.
+    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+}
+
+// ---------------------------------------------------------------------------
+// VERSION DIFFERENCE NOTES  (1.20.1 vs 1.21.x)
+// ---------------------------------------------------------------------------
+// When we implement mobs, biomes, and rendering, watch out for these:
+//
+//  MOB REGISTRATION
+//    1.20.1: FabricEntityTypeBuilder.create(SpawnGroup, EntityType.EntityFactory)
+//            + FabricDefaultAttributeRegistry.register(type, attributes)
+//    1.21.x: Same pattern but some attribute constants were renamed/moved.
+//
+//  BIOME GENERATION
+//    1.20.1: BiomeModifications.addFeature(BiomeSelectors.foundInOverworld(), ...)
+//    1.21.x: Same FAPI approach but several BiomeSelector methods added.
+//
+//  CUSTOM HUD (sanity bar)
+//    Both:   net.minecraft.client.gui.DrawContext   (added 1.20, kept in 1.21)
+//    1.20.1: HudRenderCallback.EVENT.register((drawContext, tickDelta) -> ...)
+//    1.21.1: HudRenderCallback changed signature to include a RenderTickCounter
+//            instead of a raw float tickDelta.  This is a BREAKING difference.
+//            → We will handle it with separate client files per version.
+//
+//  SOUND
+//    Both versions share the same SoundEvent registration pattern.
+//
+//  FOG / RENDERING
+//    1.20.1: WorldRenderEvents.FOG_RENDERING  (via Fabric API)
+//    1.21.1: same event, no signature change
+// ---------------------------------------------------------------------------

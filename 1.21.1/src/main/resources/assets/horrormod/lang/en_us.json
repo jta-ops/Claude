@@ -1,0 +1,11 @@
+{
+  "item.horrormod.herbal_remedy":     "Herbal Remedy",
+  "biome.horrormod.ashwood_forest":   "Ashwood Forest",
+  "entity.horrormod.lurker":          "The Lurker",
+  "entity.horrormod.watcher":         "The Watcher",
+  "entity.horrormod.hollow":          "The Hollow",
+  "hud.horrormod.sanity":             "Sanity",
+  "death.attack.horrormod.lurker":    "%1$s was devoured by The Lurker",
+  "death.attack.horrormod.watcher":   "%1$s was taken by The Watcher",
+  "death.attack.horrormod.hollow":    "%1$s was torn apart by The Hollow"
+}

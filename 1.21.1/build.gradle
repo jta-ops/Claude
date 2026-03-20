@@ -1,0 +1,55 @@
+// ============================================================
+// 1.21.1/build.gradle  –  Minecraft 1.21.1 subproject
+// ============================================================
+//
+// This file provides the exact dependency versions needed to
+// build the mod for Minecraft 1.21.1.
+//
+// TIP: always verify these versions at https://fabricmc.net/develop/
+// before releasing.  Values below are known-good as of early 2026.
+// ============================================================
+
+ext {
+    minecraft_version = '1.21.1'
+    yarn_mappings     = '1.21.1+build.3'
+    loader_version    = '0.16.9'
+    fabric_version    = '0.107.3+1.21.1'
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings  "net.fabricmc:yarn:${yarn_mappings}:v2"
+
+    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+}
+
+// ---------------------------------------------------------------------------
+// VERSION DIFFERENCE NOTES  (1.21.1 vs 1.20.x)
+// ---------------------------------------------------------------------------
+//
+//  HUD RENDERING  ← most likely to break
+//    1.20.1: HudRenderCallback.EVENT.register((DrawContext, float tickDelta))
+//    1.21.1: HudRenderCallback.EVENT.register((DrawContext, RenderTickCounter))
+//    → SanityHudRenderer will have TWO implementations, one per version folder.
+//
+//  ENTITY ATTRIBUTES
+//    1.21.1 renamed several EntityAttributes constants:
+//      EntityAttributes.GENERIC_MAX_HEALTH       (same)
+//      EntityAttributes.GENERIC_MOVEMENT_SPEED   (same)
+//      EntityAttributes.GENERIC_FOLLOW_RANGE     (same)
+//    Most are fine, but check Fabric's changelog if you get compile errors.
+//
+//  DAMAGE TYPES
+//    1.21.x: DamageType is a fully data-driven registry.  Custom damage
+//    requires a JSON file in data/horrormod/damage_type/.
+//    The approach is the same in 1.20.1+, but 1.21 tightened requirements.
+//
+//  WORLD GENERATION
+//    1.21 introduced new biome parameters.  BiomeModifications API (FAPI)
+//    is the same, but some BiomeSelector helpers were added for 1.21 biomes.
+//
+//  NETWORKING (future feature — if we add server→client sanity sync)
+//    1.20.1: FabricPacket / ServerPlayNetworking.send(player, new MyPacket())
+//    1.21.1: Same FAPI approach, no breaking change here.
+// ---------------------------------------------------------------------------

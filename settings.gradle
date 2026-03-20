@@ -1,0 +1,31 @@
+// ============================================================
+// settings.gradle  –  Horror Mod multi-version build
+// ============================================================
+//
+// This file tells Gradle which subprojects exist.  Each subproject
+// targets one specific Minecraft version and produces its own jar.
+//
+// To add support for another MC version (e.g. 1.20.4):
+//   1. Copy the folder '1.20.1' → '1.20.4'
+//   2. Update the ext { } block in 1.20.4/build.gradle
+//   3. Add the line:   include '1.20.4'   below
+//   4. Run:  ./gradlew :1.20.4:build
+//
+// Currently supported:
+//   1.20.x family  →  1.20.1  (most-downloaded 1.20 release)
+//   1.21.x family  →  1.21.1  (most-downloaded 1.21 release)
+// ============================================================
+
+pluginManagement {
+    repositories {
+        // Fabric's own Maven repository — required for fabric-loom
+        maven { url = 'https://maven.fabricmc.net/' }
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'horrormod'
+
+include '1.20.1'
+include '1.21.1'
