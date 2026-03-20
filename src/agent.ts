@@ -21,22 +21,29 @@ const MAX_USES_MAP = {
 } as const;
 
 function buildSystemPrompt(config: ResearchConfig): string {
-  return `You are an expert research analyst. Your task is to thoroughly research the topic: "${config.topic}"
+  return `You are an expert research analyst with coding skills. Your task is to thoroughly research the topic: "${config.topic}"
 
 Approach:
 1. Start with targeted web searches to understand the landscape
 2. Fetch key pages to extract detailed information
 3. Cross-reference sources to verify facts
-4. Synthesize findings into a comprehensive, well-structured report
+4. Use code execution to: perform calculations, analyze data, generate statistics, create visualizations (charts/graphs saved as PNG), or process structured data you've gathered
+5. Synthesize findings into a comprehensive, well-structured report
+
+When to use code:
+- Computing statistics, trends, or comparisons from data you've found
+- Creating charts or visualizations to illustrate key points (use matplotlib, save as PNG)
+- Parsing structured data (JSON, CSV, tables) from fetched pages
+- Any numerical analysis that strengthens your findings
 
 Research depth: ${config.depth}
-${config.depth === "deep" ? "Be exhaustive — explore multiple angles, recent developments, controversies, and expert opinions." : ""}
+${config.depth === "deep" ? "Be exhaustive — explore multiple angles, recent developments, controversies, expert opinions, and use code to analyze any quantitative data you find." : ""}
 ${config.depth === "quick" ? "Focus on the most important high-level points." : ""}
 
 Output format: Produce a polished Markdown report with:
 - An executive summary
 - Well-organized sections with headers
-- Key findings and insights
+- Key findings and insights, including any charts you generated (reference them by filename)
 - Sources cited inline [1], [2] etc.
 - A references section at the end
 
@@ -51,6 +58,8 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
     startTime: new Date(),
     searchesPerformed: 0,
     pagesVisited: 0,
+    codeExecutions: 0,
+    savedFiles: [],
     thinkingTokens: 0,
   };
 
@@ -67,6 +76,10 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
       type: "web_fetch_20260209",
       name: "web_fetch",
       max_uses: MAX_USES_MAP[config.depth],
+    },
+    {
+      type: "code_execution_20260120",
+      name: "code_execution",
     },
   ];
 
@@ -131,7 +144,7 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
           }
           break;
 
-        case "content_block_stop":
+        case "content_block_stop": {
           if (
             (currentBlockType === "tool_use" ||
               currentBlockType === "server_tool_use") &&
@@ -142,23 +155,22 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
             try {
               const parsed = JSON.parse(currentToolInput);
               inputSnippet =
-                parsed.query || parsed.url || JSON.stringify(parsed);
+                parsed.query || parsed.url || parsed.command || parsed.code
+                  ? (parsed.command ?? parsed.code ?? parsed.query ?? parsed.url)
+                  : JSON.stringify(parsed);
             } catch {
               // leave as-is
             }
 
-            if (
-              currentToolName === "web_search" ||
-              currentToolName === "web_search_20260209"
-            ) {
+            if (currentToolName === "web_search") {
               session.searchesPerformed++;
               ui.toolCall("web_search", inputSnippet);
-            } else if (
-              currentToolName === "web_fetch" ||
-              currentToolName === "web_fetch_20260209"
-            ) {
+            } else if (currentToolName === "web_fetch") {
               session.pagesVisited++;
               ui.toolCall("web_fetch", inputSnippet);
+            } else if (currentToolName === "bash" || currentToolName === "code_execution") {
+              session.codeExecutions++;
+              ui.codeRun(inputSnippet);
             }
           }
 
@@ -170,13 +182,7 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
           currentToolName = null;
           currentToolInput = "";
           break;
-
-        case "message_delta":
-          // Track web search/fetch tool results in the event stream
-          if (event.type === "message_delta") {
-            // handled below via finalMessage
-          }
-          break;
+        }
       }
     }
 
@@ -184,18 +190,38 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
 
     // Track thinking tokens from usage
     if (message.usage) {
-      // thinking tokens aren't directly in usage, but we track output tokens as proxy
       session.thinkingTokens += message.usage.output_tokens ?? 0;
     }
 
-    // Count tool results from response content for display feedback
+    // Handle code execution results: show output and download generated files
     for (const block of message.content) {
-      if (
-        block.type === "web_search_tool_result" ||
-        block.type === "server_tool_use"
-      ) {
-        if (block.type === "web_search_tool_result") {
-          ui.toolResult("web_search", JSON.stringify(block.content).slice(0, 80));
+      if (block.type === "bash_code_execution_tool_result") {
+        const result = block.content;
+        if (result.type === "bash_code_execution_result") {
+          ui.codeOutput(result.stdout ?? "", result.stderr ?? "", result.return_code ?? 0);
+
+          // Download any files produced by the code (e.g. charts)
+          if (result.content) {
+            for (const fileRef of result.content) {
+              if (fileRef.type === "bash_code_execution_output") {
+                try {
+                  const meta = await client.beta.files.retrieveMetadata(fileRef.file_id);
+                  const download = await client.beta.files.download(fileRef.file_id);
+                  const safeName = path.basename(meta.filename ?? fileRef.file_id);
+                  const reportDir = config.outputFile
+                    ? path.dirname(path.resolve(config.outputFile))
+                    : process.cwd();
+                  const dest = path.join(reportDir, safeName);
+                  const buf = Buffer.from(await download.arrayBuffer());
+                  await fs.writeFile(dest, buf);
+                  session.savedFiles.push(safeName);
+                  ui.fileSaved(safeName, dest);
+                } catch {
+                  // file download optional — don't fail the whole run
+                }
+              }
+            }
+          }
         }
       }
     }

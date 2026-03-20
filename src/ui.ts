@@ -6,7 +6,7 @@ export const ui = {
       chalk.cyan(`
 ╔══════════════════════════════════════════╗
 ║      🔍  Claude Research Agent  🔍       ║
-║   Powered by claude-opus-4-6 + Web       ║
+║  Powered by claude-opus-4-6 + Web + Code ║
 ╚══════════════════════════════════════════╝
 `)
     );
@@ -34,6 +34,39 @@ export const ui = {
     console.log(chalk.green(`   ✓ [${name}] `) + chalk.dim(truncated));
   },
 
+  codeRun(snippet: string) {
+    const truncated =
+      snippet.length > 100 ? snippet.slice(0, 100) + "…" : snippet;
+    console.log(chalk.magenta(`\n💻 [code_execution] `) + chalk.dim(truncated));
+  },
+
+  codeOutput(stdout: string, stderr: string, exitCode: number) {
+    if (stdout) {
+      const lines = stdout.trim().split("\n").slice(0, 6);
+      lines.forEach((l) =>
+        console.log(chalk.green("   │ ") + chalk.dim(l))
+      );
+      if (stdout.trim().split("\n").length > 6)
+        console.log(chalk.dim("   │ …"));
+    }
+    if (stderr) {
+      const lines = stderr.trim().split("\n").slice(0, 3);
+      lines.forEach((l) =>
+        console.log(chalk.red("   │ ") + chalk.dim(l))
+      );
+    }
+    const icon = exitCode === 0 ? chalk.green("   ✓") : chalk.red("   ✗");
+    console.log(`${icon} ${chalk.dim(`exit ${exitCode}`)}`);
+  },
+
+  fileSaved(name: string, dest: string) {
+    console.log(
+      chalk.magenta(`   💾 Saved generated file: `) +
+        chalk.underline(dest) +
+        chalk.dim(` (${name})`)
+    );
+  },
+
   status(msg: string) {
     console.log(chalk.cyan(`\n   ${msg}`));
   },
@@ -43,11 +76,17 @@ export const ui = {
     startTime: Date;
     searchesPerformed: number;
     pagesVisited: number;
+    codeExecutions: number;
+    savedFiles: string[];
     thinkingTokens: number;
   }) {
     const elapsed = ((Date.now() - session.startTime.getTime()) / 1000).toFixed(
       1
     );
+    const fileLines =
+      session.savedFiles.length > 0
+        ? `\n  Files:     ${session.savedFiles.join(", ")}`
+        : "";
     console.log(
       chalk.bold.green(`
 ╔══════════════════════════════════════════╗
@@ -58,7 +97,8 @@ export const ui = {
   Duration:  ${elapsed}s
   Searches:  ${session.searchesPerformed}
   Pages:     ${session.pagesVisited}
-  Thinking:  ${session.thinkingTokens.toLocaleString()} tokens
+  Code runs: ${session.codeExecutions}
+  Thinking:  ${session.thinkingTokens.toLocaleString()} tokens${fileLines}
 `)
     );
   },

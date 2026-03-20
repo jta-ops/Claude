@@ -9,5 +9,7 @@ export interface ResearchSession {
   startTime: Date;
   searchesPerformed: number;
   pagesVisited: number;
+  codeExecutions: number;
+  savedFiles: string[];
   thinkingTokens: number;
 }
