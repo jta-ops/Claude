@@ -50,7 +50,8 @@ Output format: Produce a polished Markdown report with:
 Be factual, balanced, and cite your sources.`;
 }
 
-export async function runResearchAgent(config: ResearchConfig): Promise<void> {
+export async function runResearchAgent(config: ResearchConfig, uiOverride?: Partial<typeof ui>): Promise<void> {
+  const activeUi = uiOverride ? { ...ui, ...uiOverride } : ui;
   const client = new Anthropic();
 
   const session: ResearchSession = {
@@ -63,8 +64,8 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
     thinkingTokens: 0,
   };
 
-  ui.banner();
-  ui.status(`Researching: "${config.topic}" (depth: ${config.depth})`);
+  activeUi.banner();
+  activeUi.status(`Researching: "${config.topic}" (depth: ${config.depth})`);
 
   const tools: Anthropic.Messages.ToolUnion[] = [
     {
@@ -98,7 +99,7 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
   while (iterationCount < MAX_ITERATIONS) {
     iterationCount++;
 
-    ui.section(`Iteration ${iterationCount}`);
+    activeUi.section(`Iteration ${iterationCount}`);
 
     const stream = client.messages.stream({
       model: MODEL,
@@ -123,9 +124,9 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
           currentToolInput = "";
 
           if (event.content_block.type === "thinking") {
-            ui.section("Thinking");
+            activeUi.section("Thinking");
           } else if (event.content_block.type === "text") {
-            ui.section("Response");
+            activeUi.section("Response");
           } else if (event.content_block.type === "tool_use") {
             currentToolName = event.content_block.name;
           } else if (event.content_block.type === "server_tool_use") {
@@ -135,9 +136,9 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
 
         case "content_block_delta":
           if (event.delta.type === "thinking_delta") {
-            ui.thinking(event.delta.thinking);
+            activeUi.thinking(event.delta.thinking);
           } else if (event.delta.type === "text_delta") {
-            ui.response(event.delta.text);
+            activeUi.response(event.delta.text);
             accumulatedText += event.delta.text;
           } else if (event.delta.type === "input_json_delta") {
             currentToolInput += event.delta.partial_json;
@@ -164,13 +165,13 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
 
             if (currentToolName === "web_search") {
               session.searchesPerformed++;
-              ui.toolCall("web_search", inputSnippet);
+              activeUi.toolCall("web_search", inputSnippet);
             } else if (currentToolName === "web_fetch") {
               session.pagesVisited++;
-              ui.toolCall("web_fetch", inputSnippet);
+              activeUi.toolCall("web_fetch", inputSnippet);
             } else if (currentToolName === "bash" || currentToolName === "code_execution") {
               session.codeExecutions++;
-              ui.codeRun(inputSnippet);
+              activeUi.codeRun(inputSnippet);
             }
           }
 
@@ -198,7 +199,7 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
       if (block.type === "bash_code_execution_tool_result") {
         const result = block.content;
         if (result.type === "bash_code_execution_result") {
-          ui.codeOutput(result.stdout ?? "", result.stderr ?? "", result.return_code ?? 0);
+          activeUi.codeOutput(result.stdout ?? "", result.stderr ?? "", result.return_code ?? 0);
 
           // Download any files produced by the code (e.g. charts)
           if (result.content) {
@@ -215,7 +216,7 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
                   const buf = Buffer.from(await download.arrayBuffer());
                   await fs.writeFile(dest, buf);
                   session.savedFiles.push(safeName);
-                  ui.fileSaved(safeName, dest);
+                  activeUi.fileSaved(safeName, dest);
                 } catch {
                   // file download optional — don't fail the whole run
                 }
@@ -238,12 +239,12 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
     if (message.stop_reason === "pause_turn") {
       // Server-side tools hit iteration limit — continue
       messages.push({ role: "assistant", content: message.content });
-      ui.status("Continuing research (server-side tools resuming)…");
+      activeUi.status("Continuing research (server-side tools resuming)…");
       continue;
     }
 
     if (message.stop_reason === "max_tokens") {
-      ui.status("Max tokens reached — finalizing report.");
+      activeUi.status("Max tokens reached — finalizing report.");
       break;
     }
 
@@ -260,7 +261,7 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
   }
 
   console.log("\n");
-  ui.stats(session);
+  activeUi.stats(session);
 
   // Save report
   if (reportText) {
@@ -271,6 +272,6 @@ export async function runResearchAgent(config: ResearchConfig): Promise<void> {
     const outputPath = path.resolve(outputFile);
     const header = `# Research Report: ${config.topic}\n\n_Generated: ${new Date().toISOString()}_\n_Model: ${MODEL} | Depth: ${config.depth}_\n\n---\n\n`;
     await fs.writeFile(outputPath, header + reportText, "utf-8");
-    ui.saved(outputPath);
+    activeUi.saved(outputPath);
   }
 }
