@@ -1,27 +1,31 @@
 package com.example.horrormod;
 
+import com.example.horrormod.sanity.SanityTracker;
 import com.example.horrormod.sound.ModSounds;
 import net.fabricmc.api.ModInitializer;
 
 /**
  * Server-side (and shared) mod entry point for Minecraft 1.20.1.
- *
- * <p>Fabric calls {@link #onInitialize()} once when the game starts, on the
- * logical server side.  Registrations that affect both client and server
- * (items, entities, sounds, biomes) happen here.</p>
  */
 public class HorrorMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        // 1. Shared startup (logger setup, config loading later)
+        // 1. Shared startup log
         HorrorModCommon.initialize();
 
-        // 2. Sound events ― must be registered before the world loads
+        // 2. Register sound events (forces class-loading of ModSounds,
+        //    which registers all SoundEvent objects with the MC registry).
         ModSounds.register();
 
-        // Future registrations (added one feature at a time):
-        //   ModItems.register();    // Herbal Remedy, etc.
+        // 3. Wire up the sanity system:
+        //      - ServerTickEvents  → tick every player's sanity each game tick
+        //      - ServerPlayConnectionEvents.JOIN/DISCONNECT → manage the UUID map
+        //      - ServerPlayerEvents.AFTER_RESPAWN → re-send sanity after respawn
+        SanityTracker.registerEvents();
+
+        // Future registrations:
+        //   ModItems.register();    // Herbal Remedy
         //   ModEntities.register(); // The Lurker, Watcher, Hollow
         //   ModBiomes.register();   // Ashwood Forest
 

@@ -1,13 +1,13 @@
 package com.example.horrormod;
 
+import com.example.horrormod.sanity.SanityTracker;
 import com.example.horrormod.sound.ModSounds;
 import net.fabricmc.api.ModInitializer;
 
 /**
  * Server-side (and shared) mod entry point for Minecraft 1.21.1.
- *
- * <p>Mirrors 1.20.1/HorrorMod.java exactly — version differences appear
- * inside feature classes, not here.</p>
+ * Identical to the 1.20.1 version — all version differences are inside
+ * feature classes or HorrorModClient.
  */
 public class HorrorMod implements ModInitializer {
 
@@ -15,6 +15,7 @@ public class HorrorMod implements ModInitializer {
     public void onInitialize() {
         HorrorModCommon.initialize();
         ModSounds.register();
+        SanityTracker.registerEvents();
 
         // Future registrations:
         //   ModItems.register();

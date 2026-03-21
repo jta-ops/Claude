@@ -1,56 +1,74 @@
 package com.example.horrormod;
 
+import com.example.horrormod.sanity.ClientSanityState;
+import com.example.horrormod.sanity.SanityHudRenderer;
+import com.example.horrormod.sanity.SanityNetworking;
 import com.example.horrormod.sound.AmbientSoundScheduler;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 
 /**
  * Client-only entry point for Minecraft 1.20.1.
  *
- * <p>Fabric calls {@link #onInitializeClient()} only when the game is running
- * as a client (not on a dedicated server).  Rendering, HUD, and audio
- * registrations live here.</p>
+ * <h2>Version difference: HudRenderCallback (★ only real split between versions ★)</h2>
  *
- * <h2>1.20.1 vs 1.21.1 difference: HudRenderCallback</h2>
- * <p>When we add the sanity HUD bar, this file and its 1.21.1 counterpart
- * will diverge.  In 1.20.1:</p>
+ * <p><b>1.20.1</b> — Fabric API passes a raw {@code float tickDelta}:</p>
  * <pre>
- *   HudRenderCallback.EVENT.register((DrawContext ctx, float tickDelta) -> { … });
+ *   HudRenderCallback.EVENT.register(
+ *       (DrawContext ctx, float tickDelta) -> SanityHudRenderer.render(ctx, tickDelta));
  * </pre>
- * <p>In 1.21.1 the second parameter changed to {@code RenderTickCounter}.
- * Everything else in this file is identical across both versions.</p>
+ *
+ * <p><b>1.21.1</b> — Fabric API passes a {@code RenderTickCounter} instead.
+ * See {@code 1.21.1/HorrorModClient.java} for that version's registration.
+ * The renderer itself ({@link SanityHudRenderer}) is in {@code common/} and
+ * handles both, because both versions call {@code render(ctx, float)}.</p>
+ *
+ * <p>Everything else in this file is identical to the 1.21.1 version.</p>
  */
 @Environment(EnvType.CLIENT)
 public class HorrorModClient implements ClientModInitializer {
 
-    /**
-     * One instance per logical client.  Holds the countdown timer so its
-     * state persists across ticks.
-     */
     private final AmbientSoundScheduler ambientSounds = new AmbientSoundScheduler();
 
     @Override
     public void onInitializeClient() {
         HorrorModCommon.LOGGER.info("Horror Mod client (1.20.1) initializing.");
 
-        // Register the ambient sound scheduler to run at the end of every
-        // client tick.  'END_CLIENT_TICK' fires after the world has been
-        // updated, which is what we want (so light levels are current).
+        // ── Ambient sound scheduler ───────────────────────────────────────
         ClientTickEvents.END_CLIENT_TICK.register(ambientSounds::tick);
 
-        // Future client registrations (same in both versions unless noted):
+        // ── Sanity sync packet receiver ───────────────────────────────────
+        // The server sends a single float every ~20 ticks.  We store it in
+        // ClientSanityState so the HUD and fog can read it.
         //
-        // ── Sanity HUD bar ── 1.20.1-specific signature ──
-        //   HudRenderCallback.EVENT.register(
-        //       (DrawContext ctx, float tickDelta) ->
-        //           SanityHudRenderer.render(ctx, tickDelta));
+        // Lambda signature for 1.20.1 FAPI PlayChannelHandler:
+        //   (MinecraftClient client, ClientPlayNetworkHandler handler,
+        //    PacketByteBuf buf, PacketSender responseSender)
         //
-        // ── Entity renderers ─────────────────────────────
+        // client.execute() schedules the write on the main thread, which is
+        // required because ClientPlayNetworking fires on the network thread.
+        ClientPlayNetworking.registerGlobalReceiver(
+                SanityNetworking.SANITY_SYNC_PACKET,
+                (client, handler, buf, responseSender) -> {
+                    float receivedSanity = buf.readFloat();
+                    client.execute(() -> ClientSanityState.sanity = receivedSanity);
+                });
+
+        // ── Sanity HUD bar ── 1.20.1-specific signature ───────────────────
+        // In 1.20.1 the second parameter is a raw float (partial tick).
+        HudRenderCallback.EVENT.register(
+                (ctx, tickDelta) -> SanityHudRenderer.render(ctx, tickDelta));
+
+        // ── Future client registrations ───────────────────────────────────
+        //
+        // Entity renderers:
         //   EntityRendererRegistry.register(ModEntities.LURKER, LurkerRenderer::new);
         //
-        // ── Dynamic fog ──────────────────────────────────
-        //   WorldRenderEvents.FOG_RENDERING.register(FogHandler::onFogRender);
+        // Dynamic fog is handled automatically by MixinFogRenderer — no
+        // explicit registration needed here.
     }
 }
