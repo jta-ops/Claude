@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IGI",
+    "G G",
+    "IGI"
+  ],
+  "key": {
+    "I": { "item": "minecraft:iron_nugget" },
+    "G": { "item": "minecraft:glass_pane" }
+  },
+  "result": {
+    "item": "horrormod:scramble_goggles",
+    "count": 1
+  }
+}
